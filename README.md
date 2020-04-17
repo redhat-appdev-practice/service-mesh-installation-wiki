@@ -42,7 +42,7 @@ We'll walk through:
 1.  Clone the service mesh installation repo
 
 ```
-git clone https://gitlab.consulting.redhat.com/appdev-coe/examples/service-mesh/service-mesh-installation.git
+https://github.com/redhat-appdev-practice/service-mesh-installation.git
 ```
 
 2. Install Openshift Applier and run Ansible playbooks to install required operators and Istio. <br/>
@@ -98,7 +98,7 @@ Clone the application from the Git Repo posted below and apply the Deployment an
 1. Clone Foundations application repo
 
 ```
-git clone https://gitlab.consulting.redhat.com/appdev-coe/examples/ocp-foundation-service-mesh.git
+https://github.com/gpe-mw-training/ocp-service-mesh-foundations.git
 ```
 
 2. Create a namespace in your Openshift Cluster
