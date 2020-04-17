@@ -4,13 +4,18 @@
 Service mesh is an added infrastructure layer that enables communication between microservices in a distributed architecture. Red Hat Service Mesh is based on the open source project, Istio which provides more control and configuration of interactions between microservices.
 
 ### What are the benefits of using Service Mesh?
-Service Mesh provides many utilities that make it easier to manage your microservice architecture by unintrusively taking responsibility of traffic management from the source code. Main capabilities include:
+Service Mesh provides many utilities that make it easier to manage your microservice architecture abstracting the responsibility of traffic management from the application code. Main capabilities include:
 *  Built in security protocols
 *  Traffic management
 *  Metrics, logging, and tracing
+*  Seamless observability
 
 Service mesh is configured by implementing a "sidecar" proxy along each microservice in a service mesh. This sidecar intercepts all traffic to and from a microservice and provides service mesh's utilities.
-TODO: Add diagram of sidecar architecture
+
+![Service Mesh](uploads/istio-diagram.png)
+<div align="center"><h4>The sidecar proxies of each microservice together form the service mesh network</h4></div>
+
+
 
 # Technical Pre-requisites
 * Install Openshift CLI [here](https://docs.openshift.com/container-platform/4.2/cli_reference/openshift_cli/getting-started-cli.html)  (at least v4)
@@ -37,29 +42,29 @@ We'll walk through:
 1.  Clone the service mesh installation repo
 
 ```
-git clone https://gitlab.consulting.redhat.com/appdev-coe/service-mesh/service-mesh-installation.git
+git clone https://gitlab.consulting.redhat.com/appdev-coe/examples/service-mesh/service-mesh-installation.git
 ```
 
-2. Install Elasticsearch, kiali, jaeger operators.  TODO: Automate this, descriptions of each operator. <br/>
+2. Install Openshift Applier and run Ansible playbooks to install required operators and Istio. <br/>
+Required operators: <br/>
 `Kiali`: Observability console that allows you to visualize your service mesh <br/>
 `Jaeger`: Provides tracing so you can monitor an troubleshoot transactions in a distributed system <br/>
-`Elasticsearch`: Serves as the backend for tracing and logging with jaeger
+`Elasticsearch`: Serves as the backend for tracing and logging with jaeger <br/>
+`Istio`: Service mesh operator 
 
-```
-Install on operator hub through OCP web console
-```
-
-3. Install Openshift Applier and run playbooks to install Istio. 
 
 ```
 cd service-mesh-installation 
 ansible-galaxy install -r requirements.yml -p roles
 ansible-playbook site.yml -i inventory/hosts -l bootstrap 
+ansible-playbook site.yml -i inventory/hosts -l prereq-operator 
 ansible-playbook site.yml -i inventory/hosts -l istio-operator 
 ansible-playbook site.yml -i inventory/hosts -l istio-system
 ```
+> **Note:\_** You may need to wait a few minutes between the istio-operator installation and the istio-system installation. If you run into issues try deleting the istio-system namespace and rerunning.
 
-4. Check and make sure all pods are up and running in istio-system and istio-operator before you continue.
+
+3. Check and make sure all pods are up and running in istio-system and istio-operator before you continue.
 
 ```
 oc get pods -n istio-system -w
@@ -93,7 +98,7 @@ Clone the application from the Git Repo posted below and apply the Deployment an
 1. Clone Foundations application repo
 
 ```
-git clone https://gitlab.consulting.redhat.com/appdev-coe/service-mesh/ocp-foundation-service-mesh
+git clone https://gitlab.consulting.redhat.com/appdev-coe/examples/ocp-foundation-service-mesh.git
 ```
 
 2. Create a namespace in your Openshift Cluster
@@ -131,9 +136,9 @@ oc get pods -n appdev-demo -w
 7. Your service pods should each contain two containers.  The first container will correspond to the service it is exposing. The second container should be an istio-proxy container. Please confirm that your pods have the istio-proxy container running by using the following command:  
  
 ```
-TODO: Add command
+oc -n appdev-demo get pod -o jsonpath='{.items[*].spec.containers[*].name}'
 ```
-
+You should see each service (`catalog`, `gateway`, and `partner`) paired with an `istio-proxy` container.
 You now have your demo application deployed with istio sidecar proxies. In the next section we'll work on exposing this application to external users by creating a service mesh ingress gateway service.
 
 
@@ -151,7 +156,8 @@ oc apply -f templates/service-mesh-gateway.yml -n appdev-demo
 GATEWAY_URL=$(oc get route -n istio-system istio-ingressgateway -o jsonpath='{.spec.host}')
 curl $GATEWAY_URL
 ```
-**TODO**: Add screenshot of expected result of curling app
+![Curl](uploads/curl-output.png)
+<div align="center"><h4>Output from curling the demo application</h4></div>
 
 Now your application is exposed via Service Mesh and accessible through the ingress gateway route. In the next section, we will look at Kiali and how it can visualize your service traffic.
 
@@ -188,19 +194,30 @@ for i in $(seq 50) ; do curl  $GATEWAY_URL; sleep 1 ; done
 ```
 
 #### Custom Routing (90/10)
-By using Istio, we get additional control over our routing. We can specify specific percentages of the traffic we want routed to each version of our service. Custom routing is accomplished by specifying a VirtualService and DestinationRules for your each of your services. </br>
+By using Istio, we get additional control over our routing. We can specify specific percentages of the traffic we want routed to each version of our service. Custom routing is accomplished by specifying a `VirtualService` and `DestinationRules` for your each of your services. </br>
 
-A `VirtualService` specifies how traffic will be routed to a given destination. **TODO: add screenshot of yaml to explain how rules are specified**
+A `VirtualService` specifies rules that are applied to network requests that are sent through specific hosts. In the VirtualService we will apply, we apply custom routing rules to our catalog service with a weighting of 90% for v1 and 10% for v2. **TODO: add screenshot of yaml to explain how rules are specified**
 ```
 oc project appdev-demo
 oc apply -f ./istiofiles/virtual-service-catalog-v1_and_v2.yml
 ```
 
-After routing has occurred, `DestinationRules` are then applied specifying how traffic will be configured for a specific destination. **TODO**: explain the destination rules and virtual service we are applying
+`DestinationRules` are policies that are applied to network requests after routing has occurred to a specific service. TLS protocols, circuit breaking, and load balancing are examples of policies that can be configured in DestinationRules. Refer to Istio docs for more detail. **TODO**: explain the destination rules and virtual service we are applying
 ```
 oc apply -f ./istiofiles/destination-rule-catalog-v1-v2.yml
 ```
 Curl the application and observe results in Kiali. You should see ~90% traffic routed to v1 and ~10% routed to v2.
 
+```
+for i in $(seq 50) ; do curl  $GATEWAY_URL; sleep 1 ; done
+```
+
 #### Further Experimentation
 Within the istiofiles folder, there are several `DestinationRules` and `VirtualService` templates that you can apply to change the traffic routing patterns for the sample application. Play around with running these templates and observing changes in Kiali. 
+
+
+
+
+
+
+
