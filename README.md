@@ -1,4 +1,3 @@
-# service-mesh-installation-basics
 # Service Mesh Overview
 
 ### What is Service Mesh?
