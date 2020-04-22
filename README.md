@@ -199,12 +199,12 @@ By using Istio, we get additional control over our routing. We can specify speci
 A `VirtualService` specifies rules that are applied to network requests that are sent through specific hosts. In the VirtualService we will apply, we apply custom routing rules to our catalog service with a weighting of 90% for v1 and 10% for v2. **TODO: add screenshot of yaml to explain how rules are specified**
 ```
 oc project appdev-demo
-oc apply -f ./istiofiles/virtual-service-catalog-v1_and_v2.yml
+oc apply -f ./istiofiles/virtual-service-catalog-v1_and_v2.yml -n appdev-deo
 ```
 
 `DestinationRules` are policies that are applied to network requests after routing has occurred to a specific service. TLS protocols, circuit breaking, and load balancing are examples of policies that can be configured in DestinationRules. Refer to Istio docs for more detail. **TODO**: explain the destination rules and virtual service we are applying
 ```
-oc apply -f ./istiofiles/destination-rule-catalog-v1-v2.yml
+oc apply -f ./istiofiles/destination-rule-catalog-v1-v2.yml -n appdev-demo
 ```
 Curl the application and observe results in Kiali. You should see ~90% traffic routed to v1 and ~10% routed to v2.
 
